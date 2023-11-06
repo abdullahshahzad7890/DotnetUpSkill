@@ -11,42 +11,39 @@ namespace TodoApp.Controllers
     public class TodoAppController : Controller
     {
         private readonly ITodoListRepository _todoListRepository;
-        private readonly IMapper _mapper; 
+        private readonly IMapper _mapper;
         public TodoAppController(ITodoListRepository todoListRepository, IMapper mapper)
         {
             _todoListRepository = todoListRepository;
             _mapper = mapper;
-
         }
 
         [HttpGet]
         [ProducesResponseType(200, Type = typeof(IEnumerable<Todo>))]
         public IActionResult GetTodos()
         {
-
             var todos = _todoListRepository.GetTodos();
 
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             return Ok(todos);
-
         }
 
         [HttpGet("{todoId}")]
-        [ProducesResponseType(200, Type=typeof(Todo))]
+        [ProducesResponseType(200, Type = typeof(Todo))]
         [ProducesResponseType(400)]
-        public IActionResult GetTodo(int todoId) 
+        public IActionResult GetTodo(int todoId)
         {
             if (!_todoListRepository.TodoExists(todoId))
                 return NotFound();
 
             var todo = _todoListRepository.GetTodoList(todoId);
 
-            if(!ModelState.IsValid)
-                return BadRequest(ModelState);  
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            return Ok(todo);   
+            return Ok(todo);
         }
 
         [HttpPost]
@@ -55,13 +52,12 @@ namespace TodoApp.Controllers
 
         public IActionResult CreateTodo([FromBody] TodoListDto todoCreate)
         {
-            if(todoCreate == null)
+            if (todoCreate == null)
                 return BadRequest(ModelState);
 
-            var category = _todoListRepository.GetTodos()
-                .Where(t => t.Title.Trim().ToUpper() == todoCreate.Title.TrimEnd().ToUpper())
-                .FirstOrDefault();
-            
+
+            var category = _todoListRepository.GetTodos().FirstOrDefault(t => t.Title.Trim().ToUpper().Equals(todoCreate.Title.TrimEnd().ToUpper()));
+
             if (category != null)
             {
                 ModelState.AddModelError("", "Category alrady exists");
@@ -73,70 +69,64 @@ namespace TodoApp.Controllers
 
             var todoMap = _mapper.Map<Todo>(todoCreate);
 
-            if(!_todoListRepository.CreateTodo(todoMap))
+            if (!_todoListRepository.CreateTodo(todoMap))
             {
                 ModelState.AddModelError("", "Something went wrong while saving");
                 return StatusCode(500, ModelState);
             }
 
             return Ok("Successfully created");
-
         }
 
         [HttpPut("{todoId}")]
         [ProducesResponseType(400)]
         [ProducesResponseType(204)]
         [ProducesResponseType(404)]
-        public IActionResult UpdateTodo(int todoId, [FromBody]TodoListDto updatedTodo) 
+        public IActionResult UpdateTodo(int todoId, [FromBody] TodoListDto updatedTodo)
         {
-        if(updatedTodo == null)
-            return BadRequest(ModelState);
+            if (updatedTodo == null)
+                return BadRequest(ModelState);
 
-        if(todoId != updatedTodo.Id)
-            return BadRequest(ModelState);
+            if (todoId != updatedTodo.Id)
+                return BadRequest(ModelState);
 
-        if (!_todoListRepository.TodoExists(todoId))
-            return NotFound();
+            if (!_todoListRepository.TodoExists(todoId))
+                return NotFound();
 
-        if(!ModelState.IsValid)
-            return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
             var todoMap = _mapper.Map<Todo>(updatedTodo);
 
-            if(!_todoListRepository.UpdateTodo(todoMap))
+            if (!_todoListRepository.UpdateTodo(todoMap))
             {
                 ModelState.AddModelError("", "Something went wrong updating category");
                 return StatusCode(500, ModelState);
             }
 
             return NoContent();
-            
         }
 
         [HttpDelete("{todoId}")]
         [ProducesResponseType(400)]
         [ProducesResponseType(204)]
         [ProducesResponseType(404)]
-        public IActionResult DeleteTodo(int todoId) 
+        public IActionResult DeleteTodo(int todoId)
         {
-            if(!_todoListRepository.TodoExists(todoId)) 
+            if (!_todoListRepository.TodoExists(todoId))
                 return NotFound();
 
             var todoToDelete = _todoListRepository.GetTodoList(todoId);
 
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            if(!_todoListRepository.DeleteTodo(todoToDelete))
+            if (!_todoListRepository.DeleteTodo(todoToDelete))
             {
                 ModelState.AddModelError("", "Something went wrong deleting todo");
             }
 
             return NoContent();
-
         }
-
-
-
     }
 }

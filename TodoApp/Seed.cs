@@ -14,10 +14,8 @@ namespace TodoApp
         {
             if (!dataContext.Todos.Any())
             {
-                var Todos = new List<Todo>()
+                var toDos = new List<Todo>()
                 {
-
-
                         new Todo()
                         {
                             Title = "Jack",
@@ -27,10 +25,8 @@ namespace TodoApp
 
                         }
 
-
-
                 };
-                dataContext.Todos.AddRange(Todos);
+                dataContext.Todos.AddRange(toDos);
                 dataContext.SaveChanges();
             }
         }

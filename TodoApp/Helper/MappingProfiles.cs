@@ -6,13 +6,10 @@ namespace TodoApp.Helper
 {
     public class MappingProfiles : Profile
     {
-
-        public MappingProfiles() 
+        public MappingProfiles()
         {
             CreateMap<Todo, TodoListDto>();
             CreateMap<TodoListDto, Todo>();
-
         }
-
     }
 }

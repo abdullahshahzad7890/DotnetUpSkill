@@ -11,7 +11,5 @@ namespace TodoApp.Interfaces
         bool UpdateTodo(Todo todo);
         bool DeleteTodo(Todo todo);    
         bool Save();  
-
-    
     }
 }
