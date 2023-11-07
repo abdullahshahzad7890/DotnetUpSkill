@@ -21,7 +21,7 @@ namespace TodoApp
                             Title = "Jack",
                             CreatedDate = new DateTime(2023,1,1),
                             UpdatedDate = new DateTime(2023,2,1),
-                            isCompleted = true
+                            IsCompleted = true
 
                         }
 
