@@ -1,5 +1,8 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using TodoApp.Dto;
 using TodoApp.Interfaces;
 using TodoApp.Models;
@@ -18,7 +21,7 @@ namespace TodoApp.Controllers
             _mapper = mapper;
         }
 
-        [HttpGet]
+        [HttpGet, Authorize(Roles = "Admin,User")] 
         [ProducesResponseType(200, Type = typeof(IEnumerable<Todo>))]
         public IActionResult GetTodos()
         {
@@ -27,10 +30,16 @@ namespace TodoApp.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            if (!User.IsInRole("Admin"))
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                todos = todos.Where(todo => todo.CreatedByUserId == userId).ToList();
+            }
+
             return Ok(todos);
         }
 
-        [HttpGet("{todoId}")]
+        [HttpGet("{todoId}"), Authorize(Roles = "Admin,User")]
         [ProducesResponseType(200, Type = typeof(Todo))]
         [ProducesResponseType(400)]
         public IActionResult GetTodo(int todoId)
@@ -43,10 +52,15 @@ namespace TodoApp.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            if (!User.IsInRole("Admin") && todo.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+            {
+                return Forbid();
+            }
+
             return Ok(todo);
         }
 
-        [HttpPost]
+        [HttpPost, Authorize(Roles = "Admin,User")]
         [ProducesResponseType(204)]
         [ProducesResponseType(400)]
 
@@ -55,30 +69,44 @@ namespace TodoApp.Controllers
             if (todoCreate == null)
                 return BadRequest(ModelState);
 
-
-            var category = _todoListRepository.GetTodos().FirstOrDefault(t => t.Title.Trim().ToUpper().Equals(todoCreate.Title.TrimEnd().ToUpper()));
-
-            if (category != null)
+            if(User.Identity.IsAuthenticated)
             {
-                ModelState.AddModelError("", "Category alrady exists");
-                return StatusCode(402, ModelState);
+
+                var createdByUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                var category = _todoListRepository.GetTodos().FirstOrDefault(t => t.Title.Trim().ToUpper().Equals(todoCreate.Title.TrimEnd().ToUpper()));
+
+                if (category != null)
+                {
+                    ModelState.AddModelError("", "Category alrady exists");
+                    return StatusCode(402, ModelState);
+                }
+
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var todoMap = _mapper.Map<Todo>(todoCreate);
+                todoMap.CreatedByUserId = createdByUserId;
+
+                if (!_todoListRepository.CreateTodo(todoMap))
+                {
+                    ModelState.AddModelError("", "Something went wrong while saving");
+                    return StatusCode(500, ModelState);
+                }
+
+                return Ok("Successfully created");
+
+
+            }
+            else
+            {
+                return Unauthorized();  
             }
 
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var todoMap = _mapper.Map<Todo>(todoCreate);
-
-            if (!_todoListRepository.CreateTodo(todoMap))
-            {
-                ModelState.AddModelError("", "Something went wrong while saving");
-                return StatusCode(500, ModelState);
-            }
-
-            return Ok("Successfully created");
+            
         }
 
-        [HttpPut("{todoId}")]
+        [HttpPut("{todoId}"), Authorize(Roles = "Admin,User")]
         [ProducesResponseType(400)]
         [ProducesResponseType(204)]
         [ProducesResponseType(404)]
@@ -96,6 +124,14 @@ namespace TodoApp.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var todoToUpdate = _todoListRepository.GetTodoList(todoId);
+
+            if (!User.IsInRole("Admin") && todoToUpdate.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+            {
+                return Forbid();
+            }
+
+
             var todoMap = _mapper.Map<Todo>(updatedTodo);
 
             if (!_todoListRepository.UpdateTodo(todoMap))
@@ -107,7 +143,7 @@ namespace TodoApp.Controllers
             return NoContent();
         }
 
-        [HttpDelete("{todoId}")]
+        [HttpDelete("{todoId}"), Authorize(Roles = "Admin,User")]
         [ProducesResponseType(400)]
         [ProducesResponseType(204)]
         [ProducesResponseType(404)]
@@ -117,6 +153,13 @@ namespace TodoApp.Controllers
                 return NotFound();
 
             var todoToDelete = _todoListRepository.GetTodoList(todoId);
+
+
+            if (!User.IsInRole("Admin") && todoToDelete.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+            {
+                return Forbid();
+            }
+
 
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
