@@ -6,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using TodoApp.Dto;
+using TodoApp.Enums;
 using TodoApp.Models;
 using TodoApp.Repository;
 
@@ -27,9 +28,9 @@ namespace TodoApp.Controllers
 
         public async Task<ActionResult<User>> Register(UserDto request)
         {
+            bool userExists = await _userRepository.UserExists(request.Username);
 
-
-            if (_userRepository.UserExists(request.Username))
+            if (userExists)
             {
                 return BadRequest("User already exists");
             }
@@ -42,10 +43,12 @@ namespace TodoApp.Controllers
                 isAdmin = request.isAdmin,
                 PasswordHash = passwordHash,
                 PasswordSalt = passwordSalt
-        };
+            };
+
+            bool isUserCreated = await _userRepository.CreateUser(user);
 
 
-            if (!_userRepository.CreateUser(user))
+            if (!isUserCreated)
             {
                 ModelState.AddModelError("", "Something went wrong while saving");
                 return StatusCode(500, ModelState);
@@ -57,23 +60,23 @@ namespace TodoApp.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(UserDto request)
         {
-            var user =  _userRepository.GetUserByUsername(request.Username);
+            var user = _userRepository.GetUserByUsername(request.Username);
 
-            if (user.Username != request.Username) 
+            if (user.Username != request.Username)
             {
                 return BadRequest("User not found");
             }
 
-            if(!verifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt)) 
+            if (!VerifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt))
             {
-            return BadRequest("Wrong password");
+                return BadRequest("Wrong password");
             }
 
-            string token = createToken(user);
+            string token = CreateToken(user);
             return Ok(token);
         }
 
-        private string createToken(User user)
+        private string CreateToken(User user)
         {
 
             List<Claim> claims = new List<Claim>
@@ -82,13 +85,13 @@ namespace TodoApp.Controllers
                 new Claim(ClaimTypes.NameIdentifier, user.UserID.ToString())
 
             };
-            if(user.isAdmin == true)
+            if (user.isAdmin == true)
             {
-                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                claims.Add(new Claim(ClaimTypes.Role, UserRole.Admin.ToString()));
             }
             else
             {
-                claims.Add(new Claim(ClaimTypes.Role, "User")); 
+                claims.Add(new Claim(ClaimTypes.Role, UserRole.User.ToString()));
             }
 
             var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(
@@ -97,7 +100,7 @@ namespace TodoApp.Controllers
             var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
 
             var token = new JwtSecurityToken(
-                
+
                 claims: claims,
                 expires: DateTime.Now.AddDays(1),
                 signingCredentials: cred);
@@ -106,7 +109,7 @@ namespace TodoApp.Controllers
 
             return jwt;
         }
-        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt) 
+        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
         {
             using (var hmac = new HMACSHA512())
             {
@@ -114,7 +117,7 @@ namespace TodoApp.Controllers
                 passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
             }
         }
-        private bool verifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
         {
             using (var hmac = new HMACSHA512(passwordSalt))
             {

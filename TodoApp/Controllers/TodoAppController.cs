@@ -15,6 +15,7 @@ namespace TodoApp.Controllers
     {
         private readonly ITodoListRepository _todoListRepository;
         private readonly IMapper _mapper;
+
         public TodoAppController(ITodoListRepository todoListRepository, IMapper mapper)
         {
             _todoListRepository = todoListRepository;
@@ -27,10 +28,13 @@ namespace TodoApp.Controllers
         {
             var todos = _todoListRepository.GetTodos();
 
+            bool isUserNotAdmin = !User.IsInRole("Admin");
+
+
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            if (!User.IsInRole("Admin"))
+            if (isUserNotAdmin)
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 todos = todos.Where(todo => todo.CreatedByUserId == userId).ToList();
@@ -49,10 +53,13 @@ namespace TodoApp.Controllers
 
             var todo = _todoListRepository.GetTodoList(todoId);
 
+            bool isUserNotAdmin = !User.IsInRole("Admin");
+            bool createdByUserIdNotMatch = todo.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            if (!User.IsInRole("Admin") && todo.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+            if (isUserNotAdmin && createdByUserIdNotMatch)
             {
                 return Forbid();
             }
@@ -71,7 +78,6 @@ namespace TodoApp.Controllers
 
             if(User.Identity.IsAuthenticated)
             {
-
                 var createdByUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 var category = _todoListRepository.GetTodos().FirstOrDefault(t => t.Title.Trim().ToUpper().Equals(todoCreate.Title.TrimEnd().ToUpper()));
@@ -79,7 +85,7 @@ namespace TodoApp.Controllers
                 if (category != null)
                 {
                     ModelState.AddModelError("", "Category alrady exists");
-                    return StatusCode(402, ModelState);
+                    return BadRequest(ModelState);
                 }
 
                 if (!ModelState.IsValid)
@@ -95,8 +101,6 @@ namespace TodoApp.Controllers
                 }
 
                 return Ok("Successfully created");
-
-
             }
             else
             {
@@ -112,17 +116,11 @@ namespace TodoApp.Controllers
         [ProducesResponseType(404)]
         public IActionResult UpdateTodo(int todoId, [FromBody] TodoListDto updatedTodo)
         {
-            if (updatedTodo == null)
-                return BadRequest(ModelState);
-
-            if (todoId != updatedTodo.Id)
+            if (updatedTodo == null || todoId != updatedTodo.Id || !ModelState.IsValid)
                 return BadRequest(ModelState);
 
             if (!_todoListRepository.TodoExists(todoId))
                 return NotFound();
-
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             var todoToUpdate = _todoListRepository.GetTodoList(todoId);
 
@@ -130,7 +128,6 @@ namespace TodoApp.Controllers
             {
                 return Forbid();
             }
-
 
             var todoMap = _mapper.Map<Todo>(updatedTodo);
 
@@ -154,8 +151,11 @@ namespace TodoApp.Controllers
 
             var todoToDelete = _todoListRepository.GetTodoList(todoId);
 
+            bool isUserNotAdmin = !User.IsInRole("Admin");
+            bool createdByUserIdNotMatch = todoToDelete.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (!User.IsInRole("Admin") && todoToDelete.CreatedByUserId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+
+            if (isUserNotAdmin && createdByUserIdNotMatch)
             {
                 return Forbid();
             }

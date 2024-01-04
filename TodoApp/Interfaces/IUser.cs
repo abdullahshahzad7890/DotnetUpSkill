@@ -5,9 +5,8 @@ namespace TodoApp.Interfaces
     public interface IUser
     {
         User GetUserByUsername(string username);
-        bool UserExists(string username);
-        bool CreateUser(User user);
-        bool Save();
+        Task<bool> UserExists(string username);
+        Task<bool> CreateUser(User user);
 
     }
 }
