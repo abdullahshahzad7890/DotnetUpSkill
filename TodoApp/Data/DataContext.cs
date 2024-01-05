@@ -7,15 +7,12 @@ namespace TodoApp.Data
     {
         public DataContext(DbContextOptions<DataContext> options) : base(options)
         {
-
         }
         public DbSet<Todo> Todos { get; set; }
-
+        public DbSet<User> User { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
         }
     }
 }
-
-
